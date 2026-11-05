@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard | Hook</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css"></head><body>
+<main>
+<section class="phero"><div class="wrap"><span class="script" data-ar="لوحة التحكم">Admin</span><h1 data-ar="الداشبورد">Dashboard</h1></div></section>
+<section style="padding-top:20px"><div class="wrap" id="dash"><p>…</p></div></section>
+</main><script src="config.js"></script><script src="seed.js"></script><script src="app.js"></script>
+<script>
+let ST=null;
+const ago=s=>{try{return new Date(s).toLocaleString(ar()?'ar-EG':'en-GB',{dateStyle:'medium',timeStyle:'short'})}catch(e){return ''}};
+const day=s=>String(s||'').slice(0,10);
+const ORD={new:['new','جديد'],confirmed:['confirmed','مؤكد'],done:['done','تم'],cancelled:['cancelled','ملغي']};
+const RST={open:['Open','مفتوح'],answered:['Answered','اتردّ عليه'],closed:['Closed','اتقفل']};
+const CST={active:['Active','شغّال'],disabled:['Disabled','متوقف'],scheduled:['Scheduled','مجدول'],expired:['Expired','انتهى'],'used up':['Used up','خلص عدد الاستخدام']};
+const kpi=(n,en,a)=>'<div class="card kpi"><b>'+n+'</b>'+t(en,a)+'</div>';
+const tbl=(head,rows)=>'<div class="scroll"><table><tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr>'+rows.join('')+'</table></div>';
+const empty=(en,a)=>'<p style="opacity:.7">'+t(en,a)+'</p>';
+const cdisc=c=>c.type==='percent'?fm(c.value)+'%':fm(c.value)+' '+cur();
+function draw(){
+  if(!ST)return;const s=ST,mx=Math.max(1,...s.days.map(d=>d.n)),c=s.counts,openR=s.reports.filter(r=>r.status!=='closed'&&!r.replies.length).length;
+  const reps=[...s.reports].sort((a,b)=>(a.status==='closed')-(b.status==='closed')||(b.at>a.at?1:-1)),top=s.coupons.find(x=>x.uses>0);
+  const inv=[...s.inventory].sort((a,b)=>((a.stock==null)-(b.stock==null))||((a.stock||0)-(b.stock||0)));
+  $('dash').innerHTML=
+   '<div class="kpis">'+kpi(s.today,'Visitors today','زوار النهارده')+kpi(s.week,'Visitors, last 7 days','زوار آخر 7 أيام')+kpi(s.visits,'Total visits (once per visitor per day)','إجمالي الزيارات (مرة للزائر في اليوم)')+kpi(s.unique,'Different visitors, all time','زوار مختلفين من الأول')+kpi(s.pageviews||0,'Page views','مشاهدات الصفحات')+kpi(s.accounts,'Accounts','عدد الحسابات')+kpi(s.orders.length,'Orders','الطلبات')+kpi(fm(s.revenue)+' '+cur(),'Order value','قيمة الطلبات')+kpi(openR,'Reports waiting','بلاغات مستنية ردك')+'</div>'
+  +'<p style="margin-top:14px;opacity:.85;font-size:.92rem">'+t('Each visitor is recognised by a random ID saved in their browser, so opening many pages counts as one visit. A website cannot read a visitor\'s IP or MAC address, and one IP is often shared by many people.','كل زائر بيتعرّف بكود عشوائي محفوظ في متصفحه، فلو فتح صفحات كتير بيتحسب زيارة واحدة. الموقع مبيقدرش يقرا الـ IP ولا الـ MAC بتاع الجهاز، والـ IP الواحد بيكون مشترك بين ناس كتير.')+'</p>'
+  +'<div class="cols"><div class="card"><h3>'+t('Visitors per day, last 14 days','الزوار في اليوم، آخر 14 يوم')+'</h3><div class="days">'+s.days.map(d=>'<div style="height:'+Math.max(2,d.n/mx*100)+'%" title="'+d.d+'"><span>'+(d.n||'')+'</span></div>').join('')+'</div></div>'
+  +'<div class="card"><h3>'+t('Most viewed projects','أكتر المشاريع مشاهدة')+'</h3>'+(s.topWork.some(w=>w.views)?tbl(['#',t('Project','المشروع'),t('Category','التصنيف'),t('Views','المشاهدات'),'%'],s.topWork.slice(0,10).map((w,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(w.name)+'</td><td>'+esc(catName('work',w.cat)||'-')+'</td><td><b>'+w.views+'</b></td><td>'+w.share+'%</td></tr>')):empty('No views yet.','لسه مفيش مشاهدات.'))+'</div>'
+  +'<div class="card"><h3>'+t('Best-selling products','المنتجات الأكتر مبيعاً')+'</h3>'+(s.topProducts.length?tbl([t('Product','المنتج'),t('Sold','اتباع'),t('Revenue','الإيراد')],s.topProducts.map(p=>'<tr><td>'+esc(p.name)+'</td><td><b>'+fm(p.qty)+'</b></td><td>'+fm(p.revenue)+' '+cur()+'</td></tr>')):empty('No orders yet.','لسه مفيش طلبات.'))+'</div>'
+  +'<div class="card"><h3>'+t('Top buyers (accounts)','أكتر العملاء شراءً (أصحاب الحسابات)')+'</h3>'+(s.topBuyers.length?tbl(['#',t('Account','الحساب'),t('Orders','الطلبات'),t('Spent','دفع'),t('Last order','آخر طلب')],s.topBuyers.slice(0,10).map((b,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(b.user)+'</td><td>'+b.orders+'</td><td><b>'+fm(b.spent)+' '+cur()+'</b></td><td>'+esc(day(b.last))+'</td></tr>')):empty('No purchases from signed-in accounts yet.','لسه مفيش مشتريات من أصحاب الحسابات.'))+'</div></div>'
+  +'<div class="card" style="margin-top:20px" id="cpn"><div class="oh"><h3>'+t('Discount coupons','كوبونات الخصم')+'</h3><div class="btns" style="margin-inline-start:auto"><button class="btn" id="cp-new">'+t('+ New coupon','+ كوبون جديد')+'</button><button class="btn ghost" id="ship-btn">'+t('Shipping and fees','الشحن والتكلفة')+'</button></div></div>'
+   +(top?'<p class="topc">'+t('Most used coupon','أكتر كوبون استخداماً')+': <b dir="ltr">'+esc(top.code)+'</b> · '+top.uses+' '+(top.uses==1?t('use','استخدام'):t('uses','استخدامات'))+' · '+t('sales','مبيعات')+' <b>'+fm(top.sales)+' '+cur()+'</b></p>':'')
+   +(s.coupons.length?tbl([t('Code','الكود'),t('Discount','الخصم'),t('Status','الحالة'),t('Uses','الاستخدام'),t('Period','الفترة'),t('Sales','المبيعات'),t('Discount given','خصم اتدّى'),''],s.coupons.map(k=>'<tr><td dir="ltr"><b>'+esc(k.code)+'</b>'+(k.note?'<br><small>'+esc(k.note)+'</small>':'')+(k.minOrder?'<br><small>'+t('min order ','أقل طلب ')+fm(k.minOrder)+'</small>':'')+'</td><td>'+cdisc(k)+'</td><td><span class="badge cs-'+k.state.replace(' ','')+'">'+t(...(CST[k.state]||[k.state,k.state]))+'</span></td><td>'+k.uses+' / '+(k.maxUses?k.maxUses:'∞')+'</td><td><small>'+(k.starts?esc(ago(k.starts)):t('now','من دلوقتي'))+'<br>'+(k.ends?esc(ago(k.ends)):t('no end','من غير نهاية'))+'</small></td><td><b>'+fm(k.sales)+' '+cur()+'</b></td><td>'+fm(k.given)+' '+cur()+'</td><td class="nw"><button class="btn ghost sm" data-cp-toggle="'+esc(k.id)+'|'+(k.active?0:1)+'">'+(k.active?t('Disable','وقّف'):t('Enable','فعّل'))+'</button> <button class="btn ghost sm" data-cp-edit="'+esc(k.id)+'">'+t('Edit','تعديل')+'</button></td></tr>')):empty('No coupons yet. Create the first one.','لسه مفيش كوبونات. اعمل أول كوبون.'))+'</div>'
+  +'<div class="card" id="invt" style="margin-top:20px"><h3>'+t('Inventory','المخزون')+'</h3>'+(inv.length?tbl([t('Code','الكود'),t('Product','المنتج'),t('Stock','المخزون'),t('Sold','اتباع'),t('Status','الحالة'),''],inv.map(p=>{const st=p.stock==null?['-',t('Not tracked','من غير تتبع')]:p.stock<=0?['out',t('Out of stock','خلص')]:p.stock<=5?['low',t('Low','قرب يخلص')]:['ok',t('OK','تمام')];return '<tr><td dir="ltr">'+esc(p.sku||'-')+'</td><td>'+esc(p.name)+'</td><td><b>'+(p.stock==null?'∞':fm(p.stock))+'</b> '+esc(unitTxt(p.unit,2))+'</td><td>'+fm(p.sold)+'</td><td><span class="badge st-'+st[0]+'">'+st[1]+'</span></td><td><button class="btn ghost sm" data-prod="'+esc(p.id)+'">'+t('Edit','تعديل')+'</button></td></tr>'}))+'<p style="opacity:.7;margin-top:8px;font-size:.9rem">'+t('Set the stock quantity and the product code from "Edit". Leave the stock empty to not track a product.','حدد كمية المخزون وكود المنتج من "تعديل". سيب المخزون فاضي لو مش عايز تتابع الكمية.')+'</p>':empty('No products.','مفيش منتجات.'))+'</div>'
+  +'<div class="card" style="margin-top:20px"><h3>'+t('Problem reports','بلاغات المشاكل')+' ('+s.reports.length+')</h3>'+(reps.length?reps.map(r=>'<div class="thread"><b>'+esc(r.subject)+'</b> <span class="badge">'+t(...RST[r.status]||[r.status,r.status])+'</span> <small style="opacity:.6">'+esc(r.username)+' · '+esc(ago(r.at))+'</small><div class="bub">'+esc(r.message)+'</div>'
+     +r.replies.map(y=>'<div class="bub sup"><small>'+t('Hook Support','دعم هوك')+' · '+esc(ago(y.at))+'</small><br>'+esc(y.text)+'</div>').join('')
+     +(r.status!=='closed'?'<textarea id="rt-'+esc(r.id)+'" rows="2" placeholder="'+t('Reply as Hook Support...','رد باسم دعم هوك...')+'" style="margin-top:10px"></textarea><div class="btns" style="margin-top:8px"><button class="btn" data-reply="'+esc(r.id)+'">'+t('Send reply','ابعت الرد')+'</button><button class="btn ghost" data-st="'+esc(r.id)+'|closed">'+t('Close','اقفل البلاغ')+'</button></div>':'<div class="btns" style="margin-top:8px"><button class="btn ghost" data-st="'+esc(r.id)+'|open">'+t('Reopen','افتح تاني')+'</button></div>')
+     +'<p class="msg" id="rm-'+esc(r.id)+'"></p></div>').join(''):empty('No reports.','مفيش بلاغات.'))+'</div>'
+  +'<div class="card" style="margin-top:20px"><h3>'+t('Orders and invoices','الطلبات والفواتير')+'</h3>'+(s.orders.length?tbl([t('Invoice','الفاتورة'),t('Date','التاريخ'),t('Customer','العميل'),t('Items','العناصر'),t('Total','الإجمالي'),t('Status','الحالة'),''],s.orders.map(o=>{const x=o.extra||{},sh=x.ship;return '<tr><td dir="ltr"><b>'+esc(x.inv||'-')+'</b></td><td>'+esc(day(o.at))+'</td><td>'+esc(o.user||t('Guest','زائر'))+(sh?'<br><small>'+esc(sh.name)+' · <span dir="ltr">+'+esc(sh.phone)+'</span><br>'+esc(L(sh.regionName))+' - '+esc(sh.address)+'</small>':'')+(x.email?'<br><small dir="ltr">'+esc(x.email)+'</small>':'')+'</td><td>'+o.items.map(i=>esc(i.name)+(i.sku?' <small dir="ltr">['+esc(i.sku)+']</small>':'')+' '+esc(lineTxt(i)||'')).join('<br>')+'</td><td><b>'+fm(o.total)+'</b>'+(x.coupon?'<br><small>'+t('coupon ','كوبون ')+'<span dir="ltr">'+esc(x.coupon.code)+'</span> -'+fm(x.discount)+'</small>':'')+(sh?'<br><small>'+t('shipping ','شحن ')+fm(sh.fee)+'</small>':'')+'</td><td><select data-ord="'+esc(o.id)+'">'+Object.keys(ORD).map(k=>'<option value="'+k+'"'+(k==o.status?' selected':'')+'>'+t(...ORD[k])+'</option>').join('')+'</select></td><td><button class="btn ghost sm" data-pdf="'+esc(o.id)+'">PDF</button></td></tr>'})):empty('No orders yet.','لسه مفيش طلبات.'))+'</div>'
+  +'<div class="card" style="margin-top:20px"><h3>'+t('Accounts created on the site','الحسابات اللي اتعملت على الموقع')+' ('+s.accounts+')</h3>'+tbl([t('Name','الاسم'),t('Username','اسم المستخدم'),t('Email','الإيميل'),t('Role','الدور'),t('Orders','الطلبات'),t('Spent','دفع'),t('Joined','التسجيل')],s.users.map(u=>'<tr><td>'+esc(u.name)+'</td><td>'+esc(u.username)+'</td><td dir="ltr">'+esc(u.email)+'</td><td>'+(u.role==='admin'?t('Admin','أدمن'):t('Client','عميل'))+'</td><td>'+u.orders+'</td><td>'+fm(u.spent)+'</td><td>'+esc(day(u.at))+'</td></tr>'))+'</div>'
+  +'<div class="cols"><div class="card"><h3>'+t('Page views','مشاهدات الصفحات')+'</h3><p>'+t('Projects','المشاريع')+': '+c.work+' · '+t('Clients','العملاء')+': '+c.clients+' · '+t('Products','المنتجات')+': '+c.products+'</p>'+tbl([t('Page','الصفحة'),t('Views','المشاهدات')],s.pages.map(p=>'<tr><td dir="ltr">'+esc(p.p)+'</td><td>'+p.n+'</td></tr>'))
+   +'<p style="margin-top:14px" class="btns"><a class="btn" href="portfolio.html">'+t('Edit projects','تعديل المشاريع')+'</a><a class="btn" href="shop.html">'+t('Edit the shop','تعديل المتجر')+'</a><a class="btn" href="index.html">'+t('Edit clients and texts','تعديل العملاء والنصوص')+'</a></p></div>'
+  +'<form class="card" id="pw"><h3>'+t('Change admin password','تغيير باسورد الأدمن')+'</h3><label><span>'+t('Current password','الباسورد الحالي')+'</span><input name="old" type="password" autocomplete="current-password" required></label><label><span>'+t('New password (8+ characters)','الباسورد الجديد (8 حروف أو أكتر)')+'</span><input name="new" type="password" autocomplete="new-password" minlength="8" required></label><button class="btn">'+t('Save','حفظ')+'</button><p class="msg" id="pm"></p></form></div>';
+  $('pw').onsubmit=async e=>{e.preventDefault();const r=await post('/api/admin/password',Object.fromEntries(new FormData(e.target))),j=await r.json().catch(()=>({}));$('pm').className='msg'+(r.ok?'':' err');$('pm').textContent=r.ok?t('Password changed.','الباسورد اتغيّر.'):errT(j.error||'Bad response');if(r.ok)e.target.reset()};
+  document.querySelectorAll('[data-ord]').forEach(sel=>sel.onchange=()=>fetch('/api/admin/orders/'+sel.dataset.ord,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({status:sel.value})}).then(async r=>{if(r.ok){await reloadContent();load()}}));
+}
+/* ---------- invoice as a PDF (made in the browser, admin only) ---------- */
+const lib=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('Could not load '+src));document.head.appendChild(s)});
+function invoiceDom(o){
+  const ex=o.extra||{},sh=ex.ship,lang=ex.lang||'en',T=(e,a)=>lang==='ar'?a:e,cu=T('EGP','ج.م'),un=u=>({piece:T('piece','قطعة'),meter:T('m','متر'),sheet:T('sheet','ورقة')}[u]||''),al=lang==='ar'?'right':'left',ot=lang==='ar'?'left':'right';
+  const ql=i=>(i.pricing==='per'&&i.unit!=='item')?fm(i.q)+' '+un(i.unit):(i.q>1?'× '+i.q:'1'),td='padding:10px 8px;border-bottom:1px solid #e8e6dc;';
+  const rows=o.items.map(i=>'<tr><td style="'+td+'text-align:'+al+'">'+esc(i.name)+(i.sku?'<br><small style="color:#888">'+esc(i.sku)+'</small>':'')+'</td><td style="'+td+'text-align:center">'+esc(ql(i))+'</td><td style="'+td+'text-align:center">'+fm(i.price)+'</td><td style="'+td+'text-align:'+ot+'">'+fm(i.q*i.price)+'</td></tr>').join('');
+  const sm=(l,v,b)=>'<tr><td colspan="3" style="padding:6px 8px;text-align:'+ot+(b?';font-weight:800;font-size:18px':'')+'">'+l+'</td><td style="padding:6px 8px;text-align:'+ot+(b?';font-weight:800;font-size:18px':'')+'">'+v+'</td></tr>';
+  const who=sh?[sh.name,'+'+sh.phone,L(sh.regionName)+' - '+sh.address,ex.email].filter(Boolean):[o.user||T('Guest','زائر'),ex.email].filter(Boolean);
+  return '<div style="background:#fe502d;color:#fffdef;padding:26px 36px;display:flex;justify-content:space-between;align-items:center"><img src="logo-cream.png" style="height:46px" alt="Hook"><div style="text-align:'+ot+'"><div style="font-size:26px;font-weight:800">'+T('INVOICE','فاتورة')+'</div><div style="font-size:15px">'+esc(ex.inv||o.id)+'</div></div></div>'
+   +'<div style="padding:28px 36px;font-size:14px;line-height:1.7"><div style="display:flex;justify-content:space-between;gap:20px;margin-bottom:22px"><div><b>'+T('Billed to','فاتورة إلى')+'</b><br>'+who.map(x=>esc(x)).join('<br>')+'</div><div style="text-align:'+ot+'"><b>'+T('Date','التاريخ')+'</b><br>'+esc(day(o.at))+'<br><b>'+T('Status','الحالة')+'</b><br>'+esc(T(...(ORD[o.status]||[o.status,o.status])))+'</div></div>'
+   +'<table style="width:100%;border-collapse:collapse"><tr style="background:#fdfbee"><th style="'+td+'text-align:'+al+'">'+T('Item','الصنف')+'</th><th style="'+td+'">'+T('Qty','الكمية')+'</th><th style="'+td+'">'+T('Price','السعر')+'</th><th style="'+td+'text-align:'+ot+'">'+T('Total','الإجمالي')+'</th></tr>'+rows
+   +sm(T('Subtotal','المجموع'),fm(ex.subtotal!=null?ex.subtotal:o.total)+' '+cu)+(ex.discount?sm(T('Coupon ','كوبون ')+esc((ex.coupon||{}).code||''),'- '+fm(ex.discount)+' '+cu):'')+(sh?sm(T('Shipping','الشحن'),fm(sh.fee)+' '+cu):'')+sm(T('Total','الإجمالي'),fm(o.total)+' '+cu,true)+'</table>'
+   +'<p style="margin-top:34px;color:#555;font-size:13px">'+T('Thank you for your order.','شكراً لطلبك.')+'<br>'+esc(DB.contact.email)+' · <span dir="ltr">+'+esc(DB.contact.whatsapp)+'</span></p></div>';
+}
+async function invoicePdf(o,btn){
+  const old=btn.textContent;btn.disabled=true;btn.textContent='...';
+  try{
+    if(!window.html2canvas)await lib('vendor/html2canvas.min.js');if(!window.jspdf)await lib('vendor/jspdf.umd.min.js');
+    const lang=(o.extra&&o.extra.lang)||'en',node=document.createElement('div');
+    node.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff;color:#1d1d1b;font-family:Rubik,Arial,sans-serif;direction:'+(lang==='ar'?'rtl':'ltr');node.innerHTML=invoiceDom(o);document.body.appendChild(node);
+    await new Promise(r=>setTimeout(r,150));const cv=await html2canvas(node,{scale:2,backgroundColor:'#ffffff',useCORS:true});node.remove();
+    const pdf=new window.jspdf.jsPDF({unit:'pt',format:'a4'}),W=pdf.internal.pageSize.getWidth(),H=pdf.internal.pageSize.getHeight(),ih=cv.height*W/cv.width,img=cv.toDataURL('image/jpeg',.92);
+    pdf.addImage(img,'JPEG',0,0,W,ih);let left=ih-H,off=0;while(left>0){pdf.addPage();off-=H;pdf.addImage(img,'JPEG',0,off,W,ih);left-=H}
+    pdf.save(((o.extra&&o.extra.inv)||o.id)+'.pdf');
+  }catch(e){alert(t('Could not make the PDF: ','معرفناش نعمل الـ PDF: ')+e.message)}
+  btn.disabled=false;btn.textContent=old;
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.id==='cp-new')return couponEditor();
+  if(b.id==='ship-btn')return shipEditor();
+  if(b.dataset.cpEdit)return couponEditor(ST.coupons.find(k=>k.id===b.dataset.cpEdit));
+  if(b.dataset.cpToggle){const[id,on]=b.dataset.cpToggle.split('|');await fetch('/api/admin/coupons/'+id,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({active:on==='1'})});return load()}
+  if(b.dataset.prod)return adminEdit('products',b.dataset.prod);
+  if(b.dataset.pdf)return invoicePdf(ST.orders.find(o=>o.id===b.dataset.pdf),b);
+  const rp=b.dataset.reply,st=b.dataset.st;
+  if(rp){const txt=$('rt-'+rp).value.trim(),m=$('rm-'+rp);if(!txt){m.className='msg err';m.textContent=errT('Write a reply first');return}
+    b.disabled=true;m.className='msg';m.textContent=t('Sending...','بيبعت...');
+    const r=await fetch('/api/admin/reports/'+rp+'/reply',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({text:txt})});
+    if(r.ok)load();else{b.disabled=false;m.className='msg err';m.textContent=errT((await r.json().catch(()=>({}))).error||'Bad response')}}
+  if(st){const[id,status]=st.split('|');await fetch('/api/admin/reports/'+id,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({status})});load()}
+});
+window.afterSave=()=>load();
+async function load(){const r=await fetch('/api/admin/stats');if(r.status===401){location.href='login.html';return}ST=await r.json();draw()}
+load().catch(()=>{$('dash').innerHTML='<p>'+t('The server is not running.','السيرفر مش شغال.')+'</p>'});
+document.addEventListener('langchange',draw);
+</script></body></html>
